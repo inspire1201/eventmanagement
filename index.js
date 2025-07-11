@@ -8,17 +8,7 @@ const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
 
 const app = express();
-// Allow requests from your Netlify domain
-// CORS setup
-app.use(cors({
-  origin: 'https://admirable-daifuku-57d24d.netlify.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
-}));
-
-// Explicitly handle preflight OPTIONS request
-app.options('*', cors());
-
+app.use(cors());
 
 app.use(express.json());
 
@@ -318,7 +308,6 @@ app.get('/api/event_user_details/:event_id/:user_id', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
+app.listen(5000, () => {
+  console.log('Server started on port 5000');
 });
