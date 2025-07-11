@@ -13,7 +13,7 @@ app.use(cors({
   origin: 'https://admirable-daifuku-57d24d.netlify.app',
   credentials: true, // अगर आप cookies या authentication भेज रहे हैं तो
 }));
-const PORT = process.env.PORT || 5000;
+
 app.use(express.json());
 
 // Serve static files for media
@@ -312,6 +312,7 @@ app.get('/api/event_user_details/:event_id/:user_id', (req, res) => {
   });
 });
 
-app.listen(5000, () => {
-  console.log('Server started on port 5000');
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
 });
