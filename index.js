@@ -9,7 +9,7 @@ const cloudinary = require('cloudinary').v2;
 
 const app = express();
 app.use(cors({
-  origin: ['http://localhost:5173'], 
+  origin: ['https://joyful-faun-e0c51a.netlify.app'], 
   credentials: true, 
 }));
 
