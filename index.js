@@ -9,10 +9,16 @@ const cloudinary = require('cloudinary').v2;
 
 const app = express();
 // Allow requests from your Netlify domain
+// CORS setup
 app.use(cors({
   origin: 'https://admirable-daifuku-57d24d.netlify.app',
-  credentials: true, // अगर आप cookies या authentication भेज रहे हैं तो
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
 }));
+
+// Explicitly handle preflight OPTIONS request
+app.options('*', cors());
+
 
 app.use(express.json());
 
