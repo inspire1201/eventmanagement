@@ -312,5 +312,6 @@ app.get('/api/event_user_details/:event_id/:user_id', (req, res) => {
 });
 
 app.listen(5000, () => {
-  console.log('Server started on port 5000');
+  console.log('Server running on port 5000');
 });
+
