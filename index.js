@@ -8,7 +8,12 @@ const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
 
 const app = express();
-app.use(cors());
+// Allow requests from your Netlify domain
+app.use(cors({
+  origin: 'https://admirable-daifuku-57d24d.netlify.app',
+  credentials: true, // अगर आप cookies या authentication भेज रहे हैं तो
+}));
+const PORT = process.env.PORT || 5000;
 app.use(express.json());
 
 // Serve static files for media
