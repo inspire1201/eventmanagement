@@ -15,7 +15,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// Serve static files for media
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Multer setup for file uploads
