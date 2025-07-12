@@ -44,7 +44,7 @@ const upload = multer({
       cb(new Error('Invalid file type or size'), false);
     }
   },
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max for video
+  limits: { fileSize: 100 * 1024 * 1024 }, 
 });
 
 const multerStorage = multer.memoryStorage();
