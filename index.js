@@ -165,6 +165,11 @@ app.post('/api/event_update', uploadCloud.fields([
   const { event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, type } = req.body;
   const update_date = new Date().toISOString().slice(0, 10);
 
+  // Required fields check
+  if (!event_id || !user_id || !name || !description || !start_date_time || !end_date_time || !location || !type) {
+    return res.status(400).json({ error: 'Missing required fields', details: { event_id, user_id, name, description, start_date_time, end_date_time, location, type } });
+  }
+
   // Cloudinary upload logic
   async function uploadToCloudinary(file, folder) {
     return new Promise((resolve, reject) => {
@@ -202,7 +207,7 @@ app.post('/api/event_update', uploadCloud.fields([
     (err) => {
       if (err) {
         console.error('Database error:', err);
-        return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
+        return res.status(500).json({ error: 'डेटाबेस त्रुटि', details: err.message });
       }
       res.json({ success: true });
     }
