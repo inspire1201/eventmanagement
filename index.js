@@ -73,6 +73,10 @@ db.connect((err) => {
   console.log('MySQL Connected Successfully');
 });
 
+function toMySQLDateTime(isoString) {
+  return new Date(isoString).toISOString().slice(0, 19).replace('T', ' ');
+}
+
 // Login endpoint
 app.post('/api/login', (req, res) => {
   const { pin } = req.body;
@@ -163,10 +167,26 @@ app.post('/api/event_update', uploadCloud.fields([
   { name: 'media_photos', maxCount: 5 },
 ]), async (req, res) => {
   try {
-    const { event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, type } = req.body;
-    const update_date = new Date().toISOString().slice(0, 10);
+    const {
+      event_id,
+      user_id,
+      name,
+      description,
+      start_date_time,
+      end_date_time,
+      issue_date,
+      location,
+      attendees,
+      type
+    } = req.body;
 
-    // Helper for Cloudinary upload
+    // 🛠️ Format date strings to MySQL-safe format
+    const formattedStart = toMySQLDateTime(start_date_time);
+    const formattedEnd = toMySQLDateTime(end_date_time);
+    const formattedIssue = toMySQLDateTime(issue_date);
+    const update_date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // 🌩️ Cloudinary upload helper
     async function uploadToCloudinary(file, folder) {
       return new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream({ folder }, (err, result) => {
@@ -176,11 +196,7 @@ app.post('/api/event_update', uploadCloud.fields([
       });
     }
 
-    // Logging incoming files and body for debugging
-    console.log('BODY:', req.body);
-    console.log('FILES:', req.files);
-
-    // Photos
+    // 🖼️ Handle photos
     let photos = [];
     if (req.files && req.files.photos) {
       for (const file of req.files.photos) {
@@ -189,13 +205,13 @@ app.post('/api/event_update', uploadCloud.fields([
       }
     }
 
-    // Video
+    // 🎞️ Handle video
     let video = null;
     if (req.files && req.files.video) {
       video = await uploadToCloudinary(req.files.video[0], 'event_videos');
     }
 
-    // Media Photos
+    // 📸 Handle media photos
     let media_photos = [];
     if (req.files && req.files.media_photos) {
       for (const file of req.files.media_photos) {
@@ -204,19 +220,39 @@ app.post('/api/event_update', uploadCloud.fields([
       }
     }
 
-    // Database Insert
+    // 🧾 Insert into DB
     db.query(
-      'INSERT INTO event_updates (event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, photos, video, media_photos, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, JSON.stringify(photos), video, JSON.stringify(media_photos), type],
+      `INSERT INTO event_updates (
+        event_id, user_id, name, description,
+        start_date_time, end_date_time, issue_date,
+        location, attendees, update_date,
+        photos, video, media_photos, type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        event_id,
+        user_id,
+        name,
+        description,
+        formattedStart,
+        formattedEnd,
+        formattedIssue,
+        location,
+        attendees,
+        update_date,
+        JSON.stringify(photos),
+        video,
+        JSON.stringify(media_photos),
+        type
+      ],
       (err) => {
         if (err) {
           console.error('Database error:', err);
           return res.status(500).json({ error: 'डेटाबेस त्रुटि', details: err });
         }
-        // Success response with uploaded URLs
         res.json({ success: true, photos, video, media_photos });
       }
     );
+
   } catch (error) {
     console.error('Update error:', error);
     res.status(500).json({ error: 'सर्वर त्रुटि', details: error.message });
