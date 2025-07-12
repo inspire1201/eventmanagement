@@ -18,7 +18,7 @@ app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Multer setup for file uploads
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = './uploads';
@@ -162,56 +162,51 @@ app.post('/api/event_update', uploadCloud.fields([
   { name: 'video', maxCount: 1 },
   { name: 'media_photos', maxCount: 5 },
 ]), async (req, res) => {
-  try {
-    const { event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, type } = req.body;
-    const update_date = new Date().toISOString().slice(0, 10);
+  const { event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, type } = req.body;
+  const update_date = new Date().toISOString().slice(0, 10);
 
-    // Cloudinary upload logic
-    async function uploadToCloudinary(file, folder) {
-      return new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream({ folder }, (err, result) => {
-          if (err) reject(err);
-          else resolve(result.secure_url);
-        }).end(file.buffer);
-      });
-    }
-
-    let photos = [];
-    if (req.files && req.files.photos) {
-      for (const file of req.files.photos) {
-        const url = await uploadToCloudinary(file, 'event_photos');
-        photos.push(url);
-      }
-    }
-
-    let video = null;
-    if (req.files && req.files.video) {
-      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
-    }
-
-    let media_photos = [];
-    if (req.files && req.files.media_photos) {
-      for (const file of req.files.media_photos) {
-        const url = await uploadToCloudinary(file, 'event_media_photos');
-        media_photos.push(url);
-      }
-    }
-
-    db.query(
-      'INSERT INTO event_updates (event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, photos, video, media_photos, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, JSON.stringify(photos), video, JSON.stringify(media_photos), type],
-      (err) => {
-        if (err) {
-          console.error('Database error:', err);
-          return res.status(500).json({ error: 'डेटाबेस त्रुटि', details: err.message });
-        }
-        res.json({ success: true });
-      }
-    );
-  } catch (err) {
-    console.error('Unexpected error:', err);
-    res.status(500).json({ error: err.message, stack: err.stack });
+  // Cloudinary upload logic
+  async function uploadToCloudinary(file, folder) {
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream({ folder }, (err, result) => {
+        if (err) reject(err);
+        else resolve(result.secure_url);
+      }).end(file.buffer);
+    });
   }
+
+  let photos = [];
+  if (req.files && req.files.photos) {
+    for (const file of req.files.photos) {
+      const url = await uploadToCloudinary(file, 'event_photos');
+      photos.push(url);
+    }
+  }
+
+  let video = null;
+  if (req.files && req.files.video) {
+    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+  }
+
+  let media_photos = [];
+  if (req.files && req.files.media_photos) {
+    for (const file of req.files.media_photos) {
+      const url = await uploadToCloudinary(file, 'event_media_photos');
+      media_photos.push(url);
+    }
+  }
+
+  db.query(
+    'INSERT INTO event_updates (event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, photos, video, media_photos, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, JSON.stringify(photos), video, JSON.stringify(media_photos), type],
+    (err) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
+      }
+      res.json({ success: true });
+    }
+  );
 });
 
 // Add event (Admin)
