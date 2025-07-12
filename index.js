@@ -162,51 +162,65 @@ app.post('/api/event_update', uploadCloud.fields([
   { name: 'video', maxCount: 1 },
   { name: 'media_photos', maxCount: 5 },
 ]), async (req, res) => {
-  const { event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, type } = req.body;
-  const update_date = new Date().toISOString().slice(0, 10);
+  try {
+    const { event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, type } = req.body;
+    const update_date = new Date().toISOString().slice(0, 10);
 
-  // Cloudinary upload logic
-  async function uploadToCloudinary(file, folder) {
-    return new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream({ folder }, (err, result) => {
-        if (err) reject(err);
-        else resolve(result.secure_url);
-      }).end(file.buffer);
-    });
-  }
-
-  let photos = [];
-  if (req.files && req.files.photos) {
-    for (const file of req.files.photos) {
-      const url = await uploadToCloudinary(file, 'event_photos');
-      photos.push(url);
+    // Helper for Cloudinary upload
+    async function uploadToCloudinary(file, folder) {
+      return new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream({ folder }, (err, result) => {
+          if (err) reject(err);
+          else resolve(result.secure_url);
+        }).end(file.buffer);
+      });
     }
-  }
 
-  let video = null;
-  if (req.files && req.files.video) {
-    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
-  }
+    // Logging incoming files and body for debugging
+    console.log('BODY:', req.body);
+    console.log('FILES:', req.files);
 
-  let media_photos = [];
-  if (req.files && req.files.media_photos) {
-    for (const file of req.files.media_photos) {
-      const url = await uploadToCloudinary(file, 'event_media_photos');
-      media_photos.push(url);
-    }
-  }
-
-  db.query(
-    'INSERT INTO event_updates (event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, photos, video, media_photos, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, JSON.stringify(photos), video, JSON.stringify(media_photos), type],
-    (err) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
+    // Photos
+    let photos = [];
+    if (req.files && req.files.photos) {
+      for (const file of req.files.photos) {
+        const url = await uploadToCloudinary(file, 'event_photos');
+        photos.push(url);
       }
-      res.json({ success: true });
     }
-  );
+
+    // Video
+    let video = null;
+    if (req.files && req.files.video) {
+      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+    }
+
+    // Media Photos
+    let media_photos = [];
+    if (req.files && req.files.media_photos) {
+      for (const file of req.files.media_photos) {
+        const url = await uploadToCloudinary(file, 'event_media_photos');
+        media_photos.push(url);
+      }
+    }
+
+    // Database Insert
+    db.query(
+      'INSERT INTO event_updates (event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, photos, video, media_photos, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [event_id, user_id, name, description, start_date_time, end_date_time, issue_date, location, attendees, update_date, JSON.stringify(photos), video, JSON.stringify(media_photos), type],
+      (err) => {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({ error: 'डेटाबेस त्रुटि', details: err });
+        }
+        // Success response with uploaded URLs
+        res.json({ success: true, photos, video, media_photos });
+      }
+    );
+  } catch (error) {
+    console.error('Update error:', error);
+    res.status(500).json({ error: 'सर्वर त्रुटि', details: error.message });
+  }
 });
 
 // Add event (Admin)
