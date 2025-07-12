@@ -34,7 +34,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
+    if (file.fieldname === 'video' && file.mimetype.startsWith('video/') && file.size >= 10 * 1024 * 1024) {
       cb(null, true);
     } else if (file.fieldname.startsWith('photo') && file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -189,21 +189,9 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🌩️ Cloudinary upload helper
     async function uploadToCloudinary(file, folder) {
       return new Promise((resolve, reject) => {
-        const options = {
-          folder: folder,
-          resource_type: 'auto',
-          allowed_formats: folder === 'event_videos' ? ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'] : ['jpg', 'jpeg', 'png', 'gif'],
-          transformation: folder === 'event_videos' ? { quality: 'auto' } : { quality: 'auto' }
-        };
-        
-        cloudinary.uploader.upload_stream(options, (err, result) => {
-          if (err) {
-            console.error('Cloudinary upload error:', err);
-            reject(err);
-          } else {
-            console.log('File uploaded to Cloudinary:', result.secure_url);
-            resolve(result.secure_url);
-          }
+        cloudinary.uploader.upload_stream({ folder }, (err, result) => {
+          if (err) reject(err);
+          else resolve(result.secure_url);
         }).end(file.buffer);
       });
     }
@@ -220,13 +208,7 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🎞️ Handle video
     let video = null;
     if (req.files && req.files.video) {
-      try {
-        video = await uploadToCloudinary(req.files.video[0], 'event_videos');
-        console.log('Video uploaded successfully:', video);
-      } catch (error) {
-        console.error('Video upload error:', error);
-        return res.status(500).json({ error: 'वीडियो अपलोड में त्रुटि', details: error.message });
-      }
+      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
     }
 
     // 📸 Handle media photos
@@ -286,21 +268,9 @@ app.post('/api/event_add', uploadCloud.fields([
   // Cloudinary upload logic
   async function uploadToCloudinary(file, folder) {
     return new Promise((resolve, reject) => {
-      const options = {
-        folder: folder,
-        resource_type: 'auto',
-        allowed_formats: folder === 'event_videos' ? ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'] : ['jpg', 'jpeg', 'png', 'gif'],
-        transformation: folder === 'event_videos' ? { quality: 'auto' } : { quality: 'auto' }
-      };
-      
-      cloudinary.uploader.upload_stream(options, (err, result) => {
-        if (err) {
-          console.error('Cloudinary upload error:', err);
-          reject(err);
-        } else {
-          console.log('File uploaded to Cloudinary:', result.secure_url);
-          resolve(result.secure_url);
-        }
+      cloudinary.uploader.upload_stream({ folder }, (err, result) => {
+        if (err) reject(err);
+        else resolve(result.secure_url);
       }).end(file.buffer);
     });
   }
@@ -315,13 +285,7 @@ app.post('/api/event_add', uploadCloud.fields([
 
   let video = null;
   if (req.files && req.files.video) {
-    try {
-      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
-      console.log('Video uploaded successfully:', video);
-    } catch (error) {
-      console.error('Video upload error:', error);
-      return res.status(500).json({ error: 'वीडियो अपलोड में त्रुटि', details: error.message });
-    }
+    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
   }
 
   const status = new Date(start_date_time) > new Date() ? 'ongoing' : 'previous';
