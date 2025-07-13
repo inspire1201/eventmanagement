@@ -162,10 +162,9 @@ app.post('/api/event_view', (req, res) => {
 
 // Update event
 app.post('/api/event_update', uploadCloud.fields([
-  
-   { name: 'media_photos', maxCount: 5 },
+  { name: 'photos', maxCount: 10 },
   { name: 'video', maxCount: 1 },
- { name: 'photos', maxCount: 1 },
+  { name: 'media_photos', maxCount: 5 },
 ]), async (req, res) => {
   try {
     const {
