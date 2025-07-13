@@ -162,7 +162,7 @@ app.post('/api/event_view', (req, res) => {
 
 // Update event
 app.post('/api/event_update', uploadCloud.fields([
-  { name: 'photos', maxCount: 10 },
+  { name: 'photos', maxCount: 1 },
   { name: 'video', maxCount: 1 },
   { name: 'media_photos', maxCount: 5 },
 ]), async (req, res) => {
@@ -187,17 +187,14 @@ app.post('/api/event_update', uploadCloud.fields([
     const update_date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
     // 🌩️ Cloudinary upload helper
-    async function uploadToCloudinary(file, folder, resourceType = 'image') {
-  return new Promise((resolve, reject) => {
-    cloudinary.uploader.upload_stream(
-      { folder, resource_type: resourceType },
-      (err, result) => {
-        if (err) reject(err);
-        else resolve(result.secure_url);
-      }
-    ).end(file.buffer);
-  });
-}
+    async function uploadToCloudinary(file, folder) {
+      return new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream({ folder }, (err, result) => {
+          if (err) reject(err);
+          else resolve(result.secure_url);
+        }).end(file.buffer);
+      });
+    }
 
     // 🖼️ Handle photos
     let photos = [];
@@ -209,11 +206,10 @@ app.post('/api/event_update', uploadCloud.fields([
     }
 
     // 🎞️ Handle video
-   let video = null;
-if (req.files && req.files.video) {
-  video = await uploadToCloudinary(req.files.video[0], 'event_videos', 'video');
-}
-
+    let video = null;
+    if (req.files && req.files.video) {
+      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+    }
 
     // 📸 Handle media photos
     let media_photos = [];
@@ -287,11 +283,10 @@ app.post('/api/event_add', uploadCloud.fields([
     }
   }
 
- let video = null;
-if (req.files && req.files.video) {
-  video = await uploadToCloudinary(req.files.video[0], 'event_videos', 'video');
-}
-
+  let video = null;
+  if (req.files && req.files.video) {
+    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+  }
 
   const status = new Date(start_date_time) > new Date() ? 'ongoing' : 'previous';
 
