@@ -208,7 +208,8 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🎞️ Handle video
     let video = null;
     if (req.files && req.files.video) {
-      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+      // Save video in a dedicated folder for large files
+      video = await uploadToCloudinary(req.files.video[0], 'large_event_videos');
     }
 
     // 📸 Handle media photos
@@ -285,7 +286,8 @@ app.post('/api/event_add', uploadCloud.fields([
 
   let video = null;
   if (req.files && req.files.video) {
-    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+    // Save video in a dedicated folder for large files
+    video = await uploadToCloudinary(req.files.video[0], 'large_event_videos');
   }
 
   const status = new Date(start_date_time) > new Date() ? 'ongoing' : 'previous';
