@@ -15,9 +15,7 @@ app.use(cors({
 
 app.use(express.json());  
 
-
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -31,24 +29,28 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + path.extname(file.originalname));
   },
 });
+
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'video' && file.mimetype.startsWith('video/') && file.size >= 10 * 1024 * 1024) {
+    if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
       cb(null, true);
     } else if (file.fieldname.startsWith('photo') && file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else if (file.fieldname.startsWith('media_photo') && file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type or size'), false);
+      cb(new Error('Invalid file type'), false);
     }
   },
-  limits: { fileSize: 100 * 1024 * 1024 }, 
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
 });
 
 const multerStorage = multer.memoryStorage();
-const uploadCloud = multer({ storage: multerStorage });
+const uploadCloud = multer({ 
+  storage: multerStorage,
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
+});
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -96,7 +98,7 @@ app.post('/api/login', (req, res) => {
 
     // Log user visit
     const visitDateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    const month = visitDateTime.slice(0, 7); // e.g., 2025-07
+    const month = visitDateTime.slice(0, 7);
     db.query(
       'INSERT INTO user_visits (user_id, visit_date_time, month) VALUES (?, ?, ?)',
       [user.ID, visitDateTime, month],
@@ -117,7 +119,7 @@ app.post('/api/login', (req, res) => {
 // Get user visits
 app.get('/api/user_visits/:user_id', (req, res) => {
   const { user_id } = req.params;
-  const month = new Date().toISOString().slice(0, 7); // Current month
+  const month = new Date().toISOString().slice(0, 7);
   db.query(
     'SELECT MAX(visit_date_time) as last_visit, COUNT(*) as monthly_count FROM user_visits WHERE user_id = ? AND month = ?',
     [user_id, month],
@@ -160,7 +162,33 @@ app.post('/api/event_view', (req, res) => {
   );
 });
 
-// Update event
+// Enhanced Cloudinary upload helper with better video handling
+async function uploadToCloudinary(file, folder) {
+  return new Promise((resolve, reject) => {
+    const uploadOptions = {
+      folder,
+      resource_type: 'auto', // This automatically detects video/image
+    };
+
+    // For video files, add video-specific options
+    if (file.mimetype.startsWith('video/')) {
+      uploadOptions.resource_type = 'video';
+      uploadOptions.quality = 'auto';
+      uploadOptions.format = 'mp4'; // Convert to mp4 for better compatibility
+    }
+
+    cloudinary.uploader.upload_stream(uploadOptions, (err, result) => {
+      if (err) {
+        console.error('Cloudinary upload error:', err);
+        reject(err);
+      } else {
+        resolve(result.secure_url);
+      }
+    }).end(file.buffer);
+  });
+}
+
+// Update event with improved video handling
 app.post('/api/event_update', uploadCloud.fields([
   { name: 'photos', maxCount: 10 },
   { name: 'video', maxCount: 1 },
@@ -180,23 +208,13 @@ app.post('/api/event_update', uploadCloud.fields([
       type
     } = req.body;
 
-    // 🛠️ Format date strings to MySQL-safe format
+    // Format date strings to MySQL-safe format
     const formattedStart = toMySQLDateTime(start_date_time);
     const formattedEnd = toMySQLDateTime(end_date_time);
     const formattedIssue = toMySQLDateTime(issue_date);
-    const update_date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const update_date = new Date().toISOString().slice(0, 10);
 
-    // 🌩️ Cloudinary upload helper
-    async function uploadToCloudinary(file, folder) {
-      return new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream({ folder }, (err, result) => {
-          if (err) reject(err);
-          else resolve(result.secure_url);
-        }).end(file.buffer);
-      });
-    }
-
-    // 🖼️ Handle photos
+    // Handle photos
     let photos = [];
     if (req.files && req.files.photos) {
       for (const file of req.files.photos) {
@@ -205,13 +223,23 @@ app.post('/api/event_update', uploadCloud.fields([
       }
     }
 
-    // 🎞️ Handle video
+    // Handle video with improved error handling
     let video = null;
-    if (req.files && req.files.video) {
-      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+    if (req.files && req.files.video && req.files.video[0]) {
+      try {
+        console.log('Uploading video to Cloudinary...');
+        video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+        console.log('Video uploaded successfully:', video);
+      } catch (videoError) {
+        console.error('Video upload failed:', videoError);
+        return res.status(500).json({ 
+          error: 'वीडियो अपलोड त्रुटि', 
+          details: videoError.message 
+        });
+      }
     }
 
-    // 📸 Handle media photos
+    // Handle media photos
     let media_photos = [];
     if (req.files && req.files.media_photos) {
       for (const file of req.files.media_photos) {
@@ -220,7 +248,7 @@ app.post('/api/event_update', uploadCloud.fields([
       }
     }
 
-    // 🧾 Insert into DB
+    // Insert into DB
     db.query(
       `INSERT INTO event_updates (
         event_id, user_id, name, description,
@@ -249,7 +277,13 @@ app.post('/api/event_update', uploadCloud.fields([
           console.error('Database error:', err);
           return res.status(500).json({ error: 'डेटाबेस त्रुटि', details: err });
         }
-        res.json({ success: true, photos, video, media_photos });
+        res.json({ 
+          success: true, 
+          photos, 
+          video, 
+          media_photos,
+          message: 'Event updated successfully'
+        });
       }
     );
 
@@ -259,67 +293,89 @@ app.post('/api/event_update', uploadCloud.fields([
   }
 });
 
-// Add event (Admin)
+// Add event (Admin) with improved video handling
 app.post('/api/event_add', uploadCloud.fields([
   { name: 'photos', maxCount: 10 },
   { name: 'video', maxCount: 1 },
 ]), async (req, res) => {
-  const { name, description, start_date_time, end_date_time, issue_date, location, type, user } = req.body;
-  // Cloudinary upload logic
-  async function uploadToCloudinary(file, folder) {
-    return new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream({ folder }, (err, result) => {
-        if (err) reject(err);
-        else resolve(result.secure_url);
-      }).end(file.buffer);
-    });
-  }
+  try {
+    const { name, description, start_date_time, end_date_time, issue_date, location, type, user } = req.body;
 
-  let photos = [];
-  if (req.files && req.files.photos) {
-    for (const file of req.files.photos) {
-      const url = await uploadToCloudinary(file, 'event_photos');
-      photos.push(url);
-    }
-  }
-
-  let video = null;
-  if (req.files && req.files.video) {
-    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
-  }
-
-  const status = new Date(start_date_time) > new Date() ? 'ongoing' : 'previous';
-
-  db.query(
-    'INSERT INTO events (name, description, start_date_time, end_date_time, issue_date, location, type, status, photos, video) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [name, description, start_date_time, end_date_time, issue_date, location, type, status, JSON.stringify(photos), video],
-    (err, result) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
+    // Handle photos
+    let photos = [];
+    if (req.files && req.files.photos) {
+      for (const file of req.files.photos) {
+        const url = await uploadToCloudinary(file, 'event_photos');
+        photos.push(url);
       }
-      const event_id = result.insertId;
-      // Link to all users if "All Jila Addhyaksh"
-      if (user === 'All Jila Addhyaksh') {
-        db.query('SELECT ID FROM users WHERE Designation != "Admin"', (err, users) => {
-          if (err) {
-            console.error('Database error:', err);
-            return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
-          }
-          const values = users.map(u => [event_id, u.ID]);
-          db.query('INSERT INTO event_users (event_id, user_id) VALUES ?', [values], (err) => {
+    }
+
+    // Handle video
+    let video = null;
+    if (req.files && req.files.video && req.files.video[0]) {
+      try {
+        console.log('Uploading video to Cloudinary...');
+        video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+        console.log('Video uploaded successfully:', video);
+      } catch (videoError) {
+        console.error('Video upload failed:', videoError);
+        return res.status(500).json({ 
+          error: 'वीडियो अपलोड त्रुटि', 
+          details: videoError.message 
+        });
+      }
+    }
+
+    const status = new Date(start_date_time) > new Date() ? 'ongoing' : 'previous';
+
+    db.query(
+      'INSERT INTO events (name, description, start_date_time, end_date_time, issue_date, location, type, status, photos, video) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, description, start_date_time, end_date_time, issue_date, location, type, status, JSON.stringify(photos), video],
+      (err, result) => {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
+        }
+        
+        const event_id = result.insertId;
+        
+        // Link to all users if "All Jila Addhyaksh"
+        if (user === 'All Jila Addhyaksh') {
+          db.query('SELECT ID FROM users WHERE Designation != "Admin"', (err, users) => {
             if (err) {
               console.error('Database error:', err);
               return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
             }
-            res.json({ success: true });
+            const values = users.map(u => [event_id, u.ID]);
+            db.query('INSERT INTO event_users (event_id, user_id) VALUES ?', [values], (err) => {
+              if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
+              }
+              res.json({ 
+                success: true, 
+                event_id,
+                video,
+                photos,
+                message: 'Event added successfully'
+              });
+            });
           });
-        });
-      } else {
-        res.json({ success: true });
+        } else {
+          res.json({ 
+            success: true, 
+            event_id,
+            video,
+            photos,
+            message: 'Event added successfully'
+          });
+        }
       }
-    }
-  );
+    );
+  } catch (error) {
+    console.error('Add event error:', error);
+    res.status(500).json({ error: 'सर्वर त्रुटि', details: error.message });
+  }
 });
 
 // Get event report (Admin)
@@ -364,4 +420,3 @@ app.get('/api/event_user_details/:event_id/:user_id', (req, res) => {
 app.listen(5000, () => {
   console.log('Server running on port 5000');
 });
-
