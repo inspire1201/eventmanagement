@@ -180,91 +180,105 @@ app.post('/api/event_update', uploadCloud.fields([
       type
     } = req.body;
 
-    // 🛠️ Format date strings to MySQL-safe format
-    const formattedStart = toMySQLDateTime(start_date_time);
-    const formattedEnd = toMySQLDateTime(end_date_time);
-    const formattedIssue = toMySQLDateTime(issue_date);
-    const update_date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
-    // 🌩️ Cloudinary upload helper
-    async function uploadToCloudinary(file, folder) {
-      return new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream(
-          {
-            folder,
-            resource_type: file.mimetype && file.mimetype.startsWith('video/') ? 'video' : 'image'
-          },
-          (err, result) => {
-            if (err) reject(err);
-            else resolve(result.secure_url);
-          }
-        ).end(file.buffer);
-      });
-    }
-
-    // 🖼️ Handle photos
-    let photos = [];
-    if (req.files && req.files.photos) {
-      for (const file of req.files.photos) {
-        if (!file || !file.buffer) continue;
-        const url = await uploadToCloudinary(file, 'event_photos');
-        photos.push(url);
-      }
-    }
-
-    // 🎞️ Handle video
-    let video = null;
-    if (req.files && req.files.video) {
-      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
-      if (typeof video !== 'string') {
-        video = String(video?.secure_url || video || '');
-      }
-      if (!video) video = null;
-    }
-
-    // 📸 Handle media photos
-    let media_photos = [];
-    if (req.files && req.files.media_photos) {
-      for (const file of req.files.media_photos) {
-        if (!file || !file.buffer) continue;
-        const url = await uploadToCloudinary(file, 'event_media_photos');
-        media_photos.push(url);
-      }
-    }
-
-    // 🧾 Insert into DB
+    // 1. Check update count for this user & event
     db.query(
-      `INSERT INTO event_updates (
-        event_id, user_id, name, description,
-        start_date_time, end_date_time, issue_date,
-        location, attendees, update_date,
-        photos, video, media_photos, type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        event_id,
-        user_id,
-        name,
-        description,
-        formattedStart,
-        formattedEnd,
-        formattedIssue,
-        location,
-        attendees,
-        update_date,
-        JSON.stringify(photos),
-        video,
-        JSON.stringify(media_photos),
-        type
-      ],
-      (err) => {
+      'SELECT COUNT(*) as count FROM event_updates WHERE event_id = ? AND user_id = ?',
+      [event_id, user_id],
+      async (err, results) => {
         if (err) {
           console.error('Database error:', err);
           return res.status(500).json({ error: 'डेटाबेस त्रुटि', details: err });
         }
-        res.json({ success: true, photos, video, media_photos });
+        if (results[0].count >= 5) {
+          return res.status(400).json({ error: 'आप 5 बार से ज्यादा update नहीं कर सकते। You cannot update more than 5 times.' });
+        }
+
+        // 🛠️ Format date strings to MySQL-safe format
+        const formattedStart = toMySQLDateTime(start_date_time);
+        const formattedEnd = toMySQLDateTime(end_date_time);
+        const formattedIssue = toMySQLDateTime(issue_date);
+        const update_date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+        // 🌩️ Cloudinary upload helper
+        async function uploadToCloudinary(file, folder) {
+          return new Promise((resolve, reject) => {
+            cloudinary.uploader.upload_stream(
+              {
+                folder,
+                resource_type: file.mimetype && file.mimetype.startsWith('video/') ? 'video' : 'image'
+              },
+              (err, result) => {
+                if (err) reject(err);
+                else resolve(result.secure_url);
+              }
+            ).end(file.buffer);
+          });
+        }
+
+        // 🖼️ Handle photos
+        let photos = [];
+        if (req.files && req.files.photos) {
+          for (const file of req.files.photos) {
+            if (!file || !file.buffer) continue;
+            const url = await uploadToCloudinary(file, 'event_photos');
+            photos.push(url);
+          }
+        }
+
+        // 🎞️ Handle video
+        let video = null;
+        if (req.files && req.files.video) {
+          video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+          if (typeof video !== 'string') {
+            video = String(video?.secure_url || video || '');
+          }
+          if (!video) video = null;
+        }
+
+        // 📸 Handle media photos
+        let media_photos = [];
+        if (req.files && req.files.media_photos) {
+          for (const file of req.files.media_photos) {
+            if (!file || !file.buffer) continue;
+            const url = await uploadToCloudinary(file, 'event_media_photos');
+            media_photos.push(url);
+          }
+        }
+
+        // 🧾 Insert into DB
+        db.query(
+          `INSERT INTO event_updates (
+            event_id, user_id, name, description,
+            start_date_time, end_date_time, issue_date,
+            location, attendees, update_date,
+            photos, video, media_photos, type
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            event_id,
+            user_id,
+            name,
+            description,
+            formattedStart,
+            formattedEnd,
+            formattedIssue,
+            location,
+            attendees,
+            update_date,
+            JSON.stringify(photos),
+            video,
+            JSON.stringify(media_photos),
+            type
+          ],
+          (err) => {
+            if (err) {
+              console.error('Database error:', err);
+              return res.status(500).json({ error: 'डेटाबेस त्रुटि', details: err });
+            }
+            res.json({ success: true, photos, video, media_photos });
+          }
+        );
       }
     );
-
   } catch (error) {
     console.error('Update error:', error);
     res.status(500).json({ error: 'सर्वर त्रुटि', details: error.message });
