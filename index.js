@@ -216,6 +216,10 @@ app.post('/api/event_update', uploadCloud.fields([
     let video = null;
     if (req.files && req.files.video) {
       video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+      if (typeof video !== 'string') {
+        video = String(video?.secure_url || video || '');
+      }
+      if (!video) video = null;
     }
 
     // 📸 Handle media photos
