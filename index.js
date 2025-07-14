@@ -48,18 +48,7 @@ const upload = multer({
 });
 
 const multerStorage = multer.memoryStorage();
-const uploadCloud = multer({
-  storage: multer.memoryStorage(),
-  fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
-      cb(null, true);
-    } else if ((file.fieldname === 'photos' || file.fieldname === 'media_photos') && file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type'), false);
-    }
-  }
-});
+const uploadCloud = multer({ storage: multerStorage });
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -128,7 +117,7 @@ app.post('/api/login', (req, res) => {
 // Get user visits
 app.get('/api/user_visits/:user_id', (req, res) => {
   const { user_id } = req.params;
-  const month = new Date().toISOString().slice(0, 7); 
+  const month = new Date().toISOString().slice(0, 7); // Current month
   db.query(
     'SELECT MAX(visit_date_time) as last_visit, COUNT(*) as monthly_count FROM user_visits WHERE user_id = ? AND month = ?',
     [user_id, month],
@@ -177,8 +166,6 @@ app.post('/api/event_update', uploadCloud.fields([
   { name: 'video', maxCount: 1 },
   { name: 'media_photos', maxCount: 5 },
 ]), async (req, res) => {
-  console.log('BODY:', req.body);
-  console.log('FILES:', req.files);
   try {
     const {
       event_id,
@@ -213,7 +200,6 @@ app.post('/api/event_update', uploadCloud.fields([
     let photos = [];
     if (req.files && req.files.photos) {
       for (const file of req.files.photos) {
-        if (!file.mimetype.startsWith('image/')) continue;
         const url = await uploadToCloudinary(file, 'event_photos');
         photos.push(url);
       }
@@ -222,16 +208,13 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🎞️ Handle video
     let video = null;
     if (req.files && req.files.video) {
-      if (req.files.video[0].mimetype.startsWith('video/')) {
-        video = await uploadToCloudinary(req.files.video[0], 'video');
-      }
+      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
     }
 
     // 📸 Handle media photos
     let media_photos = [];
     if (req.files && req.files.media_photos) {
       for (const file of req.files.media_photos) {
-        if (!file.mimetype.startsWith('image/')) continue;
         const url = await uploadToCloudinary(file, 'event_media_photos');
         media_photos.push(url);
       }
@@ -302,7 +285,7 @@ app.post('/api/event_add', uploadCloud.fields([
 
   let video = null;
   if (req.files && req.files.video) {
-    video = await uploadToCloudinary(req.files.video[0], 'video');
+    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
   }
 
   const status = new Date(start_date_time) > new Date() ? 'ongoing' : 'previous';
