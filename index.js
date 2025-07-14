@@ -117,7 +117,7 @@ app.post('/api/login', (req, res) => {
 // Get user visits
 app.get('/api/user_visits/:user_id', (req, res) => {
   const { user_id } = req.params;
-  const month = new Date().toISOString().slice(0, 7); // Current month
+  const month = new Date().toISOString().slice(0, 7); 
   db.query(
     'SELECT MAX(visit_date_time) as last_visit, COUNT(*) as monthly_count FROM user_visits WHERE user_id = ? AND month = ?',
     [user_id, month],
