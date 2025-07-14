@@ -200,6 +200,9 @@ app.post('/api/event_update', uploadCloud.fields([
     let photos = [];
     if (req.files && req.files.photos) {
       for (const file of req.files.photos) {
+        if (!file.mimetype.startsWith('image/')) {
+          return res.status(400).json({ error: 'Invalid file type', details: 'Photos must be image files.' });
+        }
         const url = await uploadToCloudinary(file, 'event_photos');
         photos.push(url);
       }
@@ -208,13 +211,23 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🎞️ Handle video
     let video = null;
     if (req.files && req.files.video) {
-      video = await uploadToCloudinary(req.files.video[0], 'video');
+      const file = req.files.video[0];
+      if (!file.mimetype.startsWith('video/')) {
+        return res.status(400).json({ error: 'Invalid file type', details: 'Video must be a video file.' });
+      }
+      if (file.size < 10 * 1024 * 1024) {
+        return res.status(400).json({ error: 'Invalid file size', details: 'Video must be at least 10MB.' });
+      }
+      video = await uploadToCloudinary(file, 'video');
     }
 
     // 📸 Handle media photos
     let media_photos = [];
     if (req.files && req.files.media_photos) {
       for (const file of req.files.media_photos) {
+        if (!file.mimetype.startsWith('image/')) {
+          return res.status(400).json({ error: 'Invalid file type', details: 'Media photos must be image files.' });
+        }
         const url = await uploadToCloudinary(file, 'event_media_photos');
         media_photos.push(url);
       }
