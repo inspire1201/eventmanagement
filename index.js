@@ -200,7 +200,7 @@ app.post('/api/event_update', uploadCloud.fields([
     let photos = [];
     if (req.files && req.files.photos) {
       for (const file of req.files.photos) {
-        if (!file.mimetype.startsWith('image/')) {
+        if (!file || !file.mimetype || !file.mimetype.startsWith('image/')) {
           return res.status(400).json({ error: 'Invalid file type', details: 'Photos must be image files.' });
         }
         const url = await uploadToCloudinary(file, 'event_photos');
@@ -223,7 +223,7 @@ app.post('/api/event_update', uploadCloud.fields([
     let media_photos = [];
     if (req.files && req.files.media_photos) {
       for (const file of req.files.media_photos) {
-        if (!file.mimetype.startsWith('image/')) {
+        if (!file || !file.mimetype || !file.mimetype.startsWith('image/')) {
           return res.status(400).json({ error: 'Invalid file type', details: 'Media photos must be image files.' });
         }
         const url = await uploadToCloudinary(file, 'event_media_photos');
