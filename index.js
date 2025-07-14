@@ -215,9 +215,7 @@ app.post('/api/event_update', uploadCloud.fields([
       if (!file.mimetype.startsWith('video/')) {
         return res.status(400).json({ error: 'Invalid file type', details: 'Video must be a video file.' });
       }
-      if (file.size < 10 * 1024 * 1024) {
-        return res.status(400).json({ error: 'Invalid file size', details: 'Video must be at least 10MB.' });
-      }
+      // Minimum size check hata diya gaya hai
       video = await uploadToCloudinary(file, 'video');
     }
 
