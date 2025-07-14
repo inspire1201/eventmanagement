@@ -206,7 +206,7 @@ app.post('/api/event_update', uploadCloud.fields([
     }
 
     // 🎞️ Handle video
-    let video = [];
+    let video = null;
     if (req.files && req.files.video) {
       video = await uploadToCloudinary(req.files.video[0], 'video');
     }
