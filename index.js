@@ -213,6 +213,7 @@ app.post('/api/event_update', uploadCloud.fields([
     let photos = [];
     if (req.files && req.files.photos) {
       for (const file of req.files.photos) {
+        if (!file.mimetype.startsWith('image/')) continue;
         const url = await uploadToCloudinary(file, 'event_photos');
         photos.push(url);
       }
@@ -221,13 +222,16 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🎞️ Handle video
     let video = null;
     if (req.files && req.files.video) {
-      video = await uploadToCloudinary(req.files.video[0], 'video');
+      if (req.files.video[0].mimetype.startsWith('video/')) {
+        video = await uploadToCloudinary(req.files.video[0], 'video');
+      }
     }
 
     // 📸 Handle media photos
     let media_photos = [];
     if (req.files && req.files.media_photos) {
       for (const file of req.files.media_photos) {
+        if (!file.mimetype.startsWith('image/')) continue;
         const url = await uploadToCloudinary(file, 'event_media_photos');
         media_photos.push(url);
       }
