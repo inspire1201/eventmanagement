@@ -34,7 +34,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'video' && file.mimetype.startsWith('video/') && file.size >= 10 * 1024 * 1024) {
+    if (file.fieldname.startsWith('video') && file.mimetype.startsWith('video/') && file.size >= 10 * 1024 * 1024) {
       cb(null, true);
     } else if (file.fieldname.startsWith('photo') && file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -208,7 +208,7 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🎞️ Handle video
     let video = null;
     if (req.files && req.files.video) {
-      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+      video = await uploadToCloudinary(req.files.video[0], 'video');
     }
 
     // 📸 Handle media photos
@@ -285,7 +285,7 @@ app.post('/api/event_add', uploadCloud.fields([
 
   let video = null;
   if (req.files && req.files.video) {
-    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
+    video = await uploadToCloudinary(req.files.video[0], 'video');
   }
 
   const status = new Date(start_date_time) > new Date() ? 'ongoing' : 'previous';
