@@ -34,7 +34,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (file.fieldname.startsWith('video') && file.mimetype.startsWith('video/') && file.size >= 10 * 1024 * 1024) {
+    if (file.fieldname === 'video' && file.mimetype.startsWith('video/') && file.size >= 10 * 1024 * 1024) {
       cb(null, true);
     } else if (file.fieldname.startsWith('photo') && file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -189,10 +189,16 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🌩️ Cloudinary upload helper
     async function uploadToCloudinary(file, folder) {
       return new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream({ folder }, (err, result) => {
-          if (err) reject(err);
-          else resolve(result.secure_url);
-        }).end(file.buffer);
+        cloudinary.uploader.upload_stream(
+          {
+            folder,
+            resource_type: file.mimetype && file.mimetype.startsWith('video/') ? 'video' : 'image'
+          },
+          (err, result) => {
+            if (err) reject(err);
+            else resolve(result.secure_url);
+          }
+        ).end(file.buffer);
       });
     }
 
@@ -200,9 +206,7 @@ app.post('/api/event_update', uploadCloud.fields([
     let photos = [];
     if (req.files && req.files.photos) {
       for (const file of req.files.photos) {
-        if (!file || !file.mimetype || !file.mimetype.startsWith('image/')) {
-          return res.status(400).json({ error: 'Invalid file type', details: 'Photos must be image files.' });
-        }
+        if (!file || !file.buffer) continue;
         const url = await uploadToCloudinary(file, 'event_photos');
         photos.push(url);
       }
@@ -211,21 +215,14 @@ app.post('/api/event_update', uploadCloud.fields([
     // 🎞️ Handle video
     let video = null;
     if (req.files && req.files.video) {
-      const file = req.files.video[0];
-      if (!file.mimetype.startsWith('video/')) {
-        return res.status(400).json({ error: 'Invalid file type', details: 'Video must be a video file.' });
-      }
-      // Minimum size check hata diya gaya hai
-      video = await uploadToCloudinary(file, 'video');
+      video = await uploadToCloudinary(req.files.video[0], 'event_videos');
     }
 
     // 📸 Handle media photos
     let media_photos = [];
     if (req.files && req.files.media_photos) {
       for (const file of req.files.media_photos) {
-        if (!file || !file.mimetype || !file.mimetype.startsWith('image/')) {
-          return res.status(400).json({ error: 'Invalid file type', details: 'Media photos must be image files.' });
-        }
+        if (!file || !file.buffer) continue;
         const url = await uploadToCloudinary(file, 'event_media_photos');
         media_photos.push(url);
       }
@@ -279,17 +276,10 @@ app.post('/api/event_add', uploadCloud.fields([
   // Cloudinary upload logic
   async function uploadToCloudinary(file, folder) {
     return new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        {
-          folder,
-          resource_type: 'video', // large video support
-          chunk_size: 6 * 1024 * 1024 // 6MB chunks
-        },
-        (err, result) => {
-          if (err) reject(err);
-          else resolve(result.secure_url);
-        }
-      ).end(file.buffer);
+      cloudinary.uploader.upload_stream({ folder }, (err, result) => {
+        if (err) reject(err);
+        else resolve(result.secure_url);
+      }).end(file.buffer);
     });
   }
 
@@ -303,7 +293,7 @@ app.post('/api/event_add', uploadCloud.fields([
 
   let video = null;
   if (req.files && req.files.video) {
-    video = await uploadToCloudinary(req.files.video[0], 'video');
+    video = await uploadToCloudinary(req.files.video[0], 'event_videos');
   }
 
   const status = new Date(start_date_time) > new Date() ? 'ongoing' : 'previous';
