@@ -364,7 +364,8 @@ app.get('/api/event_report/:event_id', (req, res) => {
 // Get user event details (Admin)
 app.get('/api/event_user_details/:event_id/:user_id', (req, res) => {
   const { event_id, user_id } = req.params;
-  db.query('SELECT * FROM event_updates WHERE event_id = ? AND user_id = ?', [event_id, user_id], (err, results) => {
+  // Fetch the latest update if multiple exist
+  db.query('SELECT * FROM event_updates WHERE event_id = ? AND user_id = ? ORDER BY update_date DESC, id DESC LIMIT 1', [event_id, user_id], (err, results) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
