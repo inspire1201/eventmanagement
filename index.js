@@ -166,6 +166,8 @@ app.post('/api/event_update', uploadCloud.fields([
   { name: 'video', maxCount: 1 },
   { name: 'media_photos', maxCount: 5 },
 ]), async (req, res) => {
+  console.log('BODY:', req.body);
+  console.log('FILES:', req.files);
   try {
     const {
       event_id,
