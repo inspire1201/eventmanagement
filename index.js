@@ -206,7 +206,7 @@ app.post('/api/event_update', uploadCloud.fields([
     }
 
     // 🎞️ Handle video
-    let video = null;
+    let video = [];
     if (req.files && req.files.video) {
       video = await uploadToCloudinary(req.files.video[0], 'video');
     }
@@ -268,10 +268,17 @@ app.post('/api/event_add', uploadCloud.fields([
   // Cloudinary upload logic
   async function uploadToCloudinary(file, folder) {
     return new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream({ folder }, (err, result) => {
-        if (err) reject(err);
-        else resolve(result.secure_url);
-      }).end(file.buffer);
+      cloudinary.uploader.upload_stream(
+        {
+          folder,
+          resource_type: 'video', // large video support
+          chunk_size: 6 * 1024 * 1024 // 6MB chunks
+        },
+        (err, result) => {
+          if (err) reject(err);
+          else resolve(result.secure_url);
+        }
+      ).end(file.buffer);
     });
   }
 
