@@ -48,7 +48,18 @@ const upload = multer({
 });
 
 const multerStorage = multer.memoryStorage();
-const uploadCloud = multer({ storage: multerStorage });
+const uploadCloud = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else if ((file.fieldname === 'photos' || file.fieldname === 'media_photos') && file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'), false);
+    }
+  }
+});
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
