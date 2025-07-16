@@ -9,7 +9,7 @@ const cloudinary = require('cloudinary').v2;
 
 const app = express();
 app.use(cors({
-  origin: ['https://incmanagement.netlify.app','http://localhost:5173'], 
+  origin: ['https://mellow-licorice-64a0d0.netlify.app','http://localhost:5173'], 
   credentials: true, 
 }));
 
