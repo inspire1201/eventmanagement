@@ -77,7 +77,7 @@ function toMySQLDateTime(isoString) {
   return new Date(isoString).toISOString().slice(0, 19).replace('T', ' ');
 }
 
-// Login endpoint
+
 app.post('/api/login', (req, res) => {
   const { pin } = req.body;
   if (!pin) {
@@ -133,13 +133,31 @@ app.get('/api/user_visits/:user_id', (req, res) => {
 
 // Get events
 app.get('/api/events', (req, res) => {
-  const { status } = req.query;
+  const { status, user_id } = req.query;
   db.query('SELECT * FROM events WHERE status = ?', [status], (err, results) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
     }
-    res.json(results);
+    if (!user_id) {
+      // If no user_id, just return events as is
+      return res.json(results);
+    }
+    // For each event, check if user has updated
+    const eventIds = results.map(ev => ev.id || ev.ID);
+    if (eventIds.length === 0) return res.json([]);
+    db.query('SELECT event_id FROM event_updates WHERE user_id = ? AND event_id IN (?)', [user_id, eventIds], (err2, updatedRows) => {
+      if (err2) {
+        console.error('Database error:', err2);
+        return res.status(500).json({ error: 'डेटाबेस त्रुटि' });
+      }
+      const updatedEventIds = new Set(updatedRows.map(row => row.event_id));
+      const eventsWithFlag = results.map(ev => ({
+        ...ev,
+        userHasUpdated: updatedEventIds.has(ev.id || ev.ID)
+      }));
+      res.json(eventsWithFlag);
+    });
   });
 });
 
